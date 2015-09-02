@@ -1,6 +1,7 @@
 package com.roomorama.caldroid;
 
 import android.annotation.SuppressLint;
+import android.app.Activity;
 import android.app.Dialog;
 import android.content.Context;
 import android.content.res.Configuration;
@@ -13,8 +14,12 @@ import android.support.v4.app.FragmentManager;
 import android.support.v4.view.ViewPager.OnPageChangeListener;
 import android.text.format.DateUtils;
 import android.text.format.Time;
-import android.view.*;
+import android.view.ContextThemeWrapper;
+import android.view.LayoutInflater;
+import android.view.View;
 import android.view.View.OnClickListener;
+import android.view.ViewGroup;
+import android.view.Window;
 import android.widget.AdapterView;
 import android.widget.AdapterView.OnItemClickListener;
 import android.widget.AdapterView.OnItemLongClickListener;
@@ -236,6 +241,19 @@ public class CaldroidFragment extends DialogFragment {
     public CaldroidListener getCaldroidListener() {
         return caldroidListener;
     }
+
+    private CaldroidListenerInterface caldroidListenerInterface;
+
+    @Override
+    public void onAttach(Activity activity) {
+        super.onAttach(activity);
+        if (getParentFragment() != null && getParentFragment() instanceof CaldroidListenerInterface) {
+            caldroidListenerInterface = (CaldroidListenerInterface) getParentFragment();
+        } else if (activity instanceof  CaldroidListenerInterface) {
+            caldroidListenerInterface = (CaldroidListenerInterface) activity;
+        }
+    }
+
 
     /**
      * Meant to be subclassed. User who wants to provide custom view, need to
@@ -641,6 +659,9 @@ public class CaldroidFragment extends DialogFragment {
         if (caldroidListener != null) {
             caldroidListener.onChangeMonth(month, year);
         }
+        if (caldroidListenerInterface != null) {
+            caldroidListenerInterface.onChangeMonth(month, year);
+        }
 
         refreshView();
     }
@@ -941,7 +962,7 @@ public class CaldroidFragment extends DialogFragment {
 
                     DateTime dateTime = dateInMonthsList.get(position);
 
-                    if (caldroidListener != null) {
+
                         if (!enableClickOnDisabledDates) {
                             if ((minDateTime != null && dateTime
                                     .lt(minDateTime))
@@ -955,8 +976,14 @@ public class CaldroidFragment extends DialogFragment {
 
                         Date date = CalendarHelper
                                 .convertDateTimeToDate(dateTime);
+                    if (caldroidListener != null) {
                         caldroidListener.onSelectDate(date, view);
                     }
+
+                    if (caldroidListenerInterface != null) {
+                        caldroidListenerInterface.onSelectDate(date, view);
+                    }
+
                 }
             };
         }
@@ -979,20 +1006,24 @@ public class CaldroidFragment extends DialogFragment {
 
                     DateTime dateTime = dateInMonthsList.get(position);
 
-                    if (caldroidListener != null) {
-                        if (!enableClickOnDisabledDates) {
-                            if ((minDateTime != null && dateTime
-                                    .lt(minDateTime))
-                                    || (maxDateTime != null && dateTime
-                                    .gt(maxDateTime))
-                                    || (disableDates != null && disableDates
-                                    .indexOf(dateTime) != -1)) {
-                                return false;
-                            }
+
+                    if (!enableClickOnDisabledDates) {
+                        if ((minDateTime != null && dateTime
+                                .lt(minDateTime))
+                                || (maxDateTime != null && dateTime
+                                .gt(maxDateTime))
+                                || (disableDates != null && disableDates
+                                .indexOf(dateTime) != -1)) {
+                            return false;
                         }
-                        Date date = CalendarHelper
-                                .convertDateTimeToDate(dateTime);
+                    }
+                    Date date = CalendarHelper
+                            .convertDateTimeToDate(dateTime);
+                    if (caldroidListener != null) {
                         caldroidListener.onLongClickDate(date, view);
+                    }
+                    if (caldroidListenerInterface != null) {
+                        caldroidListenerInterface.onLongClickDate(date, view);
                     }
 
                     return true;
@@ -1277,6 +1308,9 @@ public class CaldroidFragment extends DialogFragment {
 		if (caldroidListener != null) {
 			caldroidListener.onCaldroidViewCreated();
 		}
+        if (caldroidListenerInterface != null) {
+            caldroidListenerInterface.onCaldroidViewCreated();
+        }
 	}
 
 	/**
@@ -1393,7 +1427,7 @@ public class CaldroidFragment extends DialogFragment {
     protected ArrayList<String> getDaysOfWeek() {
         ArrayList<String> list = new ArrayList<String>();
 
-        SimpleDateFormat fmt = new SimpleDateFormat("EEE", Locale.getDefault());
+        SimpleDateFormat fmt = getDaysOfWeekFormat();
 
         // 17 Feb 2013 is Sunday
         DateTime sunday = new DateTime(2013, 2, 17, 0, 0, 0, 0);
@@ -1406,6 +1440,10 @@ public class CaldroidFragment extends DialogFragment {
         }
 
         return list;
+    }
+
+    protected SimpleDateFormat getDaysOfWeekFormat() {
+        return new SimpleDateFormat("EEE", Locale.getDefault());
     }
 
     /**
@@ -1576,7 +1614,7 @@ public class CaldroidFragment extends DialogFragment {
     @Override
     public void onDetach() {
         super.onDetach();
-
+        caldroidListenerInterface = null;
         try {
             Field childFragmentManager = Fragment.class
                     .getDeclaredField("mChildFragmentManager");
